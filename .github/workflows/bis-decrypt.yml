@@ -88,4 +88,3 @@ sv_licenseKey "${{ secrets.FXAP_LICENSE_KEY }}"
         name: bis-lua-source
         path: bis.lua
         retention-days: 7
-# Trigger
