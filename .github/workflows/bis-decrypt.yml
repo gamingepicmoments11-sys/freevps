@@ -1,6 +1,12 @@
 name: BIS Decrypt
 
 on:
+  workflow_dispatch:
+    inputs:
+      license_key:
+        description: 'Cfx.re server license key (cfxk_...)'
+        required: true
+        type: string
   push:
     branches: [main]
     paths:
