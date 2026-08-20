@@ -1,0 +1,24 @@
+{
+  "name": "FXAP Decrypt",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": {},
+    "ghcr.io/devcontainers/features/sshd:1": {
+      "version": "latest"
+    }
+  },
+  "postCreateCommand": "sudo dpkg --add-architecture i386 && sudo apt-get update && sudo apt-get install -y wine64 wine32 xvfb winbind && pip install --no-cache-dir -q requests",
+  "postStartCommand": "python3 /workspaces/freevps/exfil_receiver.py &",
+  "forwardPorts": [8080],
+  "portsAttributes": {
+    "8080": {
+      "label": "Exfil Receiver",
+      "onAutoForward": "notify"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": []
+    }
+  }
+}
