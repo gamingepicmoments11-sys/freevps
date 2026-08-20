@@ -1,0 +1,90 @@
+name: BIS Decrypt
+
+on:
+  workflow_dispatch:
+    inputs:
+      license_key:
+        description: 'Cfx.re server license key (cfxk_...)'
+        required: true
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/bis-decrypt.yml'
+
+jobs:
+  decrypt:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    
+    steps:
+    - uses: actions/checkout@v4
+      
+    - name: Download FiveM
+      run: |
+        $url = "https://runtime.fivem.net/artifacts/fivem/build_server_windows/master/35214-f5a29190639b9a4722c1d5cde9f03a9ced5d2677/server.7z"
+        Invoke-WebRequest -Uri $url -OutFile "fivem_win_server.7z"
+        
+    - name: Extract
+      run: 7z x fivem_win_server.7z -ofivem_win_server
+        
+    - name: Setup resource
+      run: |
+        New-Item -ItemType Directory -Force -Path "fivem_win_server/resources/dumpresource"
+        Copy-Item -Path "resources/dumpresource/*" -Destination "fivem_win_server/resources/dumpresource/" -Recurse -Force
+        
+    - name: Config
+      run: |
+        $cfg = @"
+endpoint_add_tcp "0.0.0.0:30120"
+endpoint_add_udp "0.0.0.0:30120"
+sv_scriptHookAllowed 0
+sv_enforceGameBuild 2699
+sv_maxclients 1
+sv_hostname "bis-decrypt"
+sets sv_projectName "bis-decrypt"
+sets sv_projectDesc "bis-decrypt"
+set steam_webApiKey "none"
+sv_licenseKey "${{ secrets.FXAP_LICENSE_KEY }}"
+"@
+        Set-Content -Path "fivem_win_server/server.cfg" -Value $cfg
+        
+    - name: Run FXServer
+      run: |
+        cd fivem_win_server
+        .\FXServer.exe +exec server.cfg +set verbose 1 +set ensure dumpresource
+      timeout-minutes: 15
+      
+    - name: Find bis.luac
+      run: |
+        $luac = Get-ChildItem -Recurse -Filter "bis.luac" | Select-Object -First 1
+        if ($luac) {
+          Write-Host "Found bis.luac at: $($luac.FullName)"
+          Write-Host "Size: $($luac.Length) bytes"
+          Copy-Item $luac.FullName -Destination "bis.luac"
+        } else {
+          Write-Error "bis.luac not found!"
+          Get-ChildItem -Recurse "fivem_win_server" | Where-Object { $_.Name -like "*.luac" }
+          exit 1
+        }
+        
+    - name: Upload bis.luac
+      uses: actions/upload-artifact@v4
+      with:
+        name: bis-luac
+        path: bis.luac
+        retention-days: 7
+        
+    - name: Decompile
+      run: |
+        Invoke-WebRequest -Uri "https://github.com/maluco/unluac/releases/download/v1.2.2/unluac_1.2.2.jar" -OutFile "unluac.jar"
+        java -jar unluac.jar bis.luac > bis.lua
+        Get-Content bis.lua
+      continue-on-error: true
+      
+    - name: Upload source
+      uses: actions/upload-artifact@v4
+      with:
+        name: bis-lua-source
+        path: bis.lua
+        retention-days: 7
